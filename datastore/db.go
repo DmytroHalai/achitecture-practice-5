@@ -21,25 +21,30 @@ type hashIndex map[string]int64
 type Db struct {
 	out       *os.File
 	outOffset int64
-
+	filename string
 	index hashIndex
 }
 
 func Open(dir string) (*Db, error) {
-	outputPath := filepath.Join(dir, outFileName)
-	f, err := os.OpenFile(outputPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
-	if err != nil {
-		return nil, err
-	}
-	db := &Db{
-		out:   f,
-		index: make(hashIndex),
-	}
-	err = db.recover()
-	if err != nil && err != io.EOF {
-		return nil, err
-	}
-	return db, nil
+    if err := os.MkdirAll(dir, 0755); err != nil {
+        return nil, fmt.Errorf("не вдалося створити каталог %s: %w", dir, err)
+    }
+
+    outputPath := filepath.Join(dir, outFileName)
+    f, err := os.OpenFile(outputPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
+    if err != nil {
+        return nil, err
+    }
+    db := &Db{
+        out:       f,
+        filename:  outputPath,
+        index:     make(hashIndex),
+    }
+    err = db.recover()
+    if err != nil && err != io.EOF {
+        return nil, err
+    }
+    return db, nil
 }
 
 func (db *Db) recover() error {
