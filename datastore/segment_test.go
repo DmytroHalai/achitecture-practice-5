@@ -2,11 +2,11 @@ package datastore
 
 import (
 	"fmt"
-	"os"       
+	"os"
 	"testing"
 )
 
-const testMaxSegmentSize = 1 << 10 
+const testMaxSegmentSize = 1 << 10
 
 func TestSegmentsCreation(t *testing.T) {
 	dir := "testdata"
@@ -47,11 +47,8 @@ func TestSegmentsCreation(t *testing.T) {
 	}
 }
 
-
 func TestMergeSegments(t *testing.T) {
-	dir := "testdata_merge"
-	os.RemoveAll(dir)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	ds, err := NewSegmentedDatastore(dir, testMaxSegmentSize)
 	if err != nil {
@@ -96,4 +93,3 @@ func TestMergeSegments(t *testing.T) {
 		t.Errorf("очікувався 1 сегмент після злиття, отримано %d", len(ds.segments))
 	}
 }
-

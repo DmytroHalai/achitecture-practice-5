@@ -87,23 +87,24 @@ func (db *Db) recover() error {
 		return err
 	}
 	defer f.Close()
+
 	in := bufio.NewReader(f)
-	for err == nil {
-		var (
-			record entry
-			n      int
-		)
-		n, err = record.DecodeFromReader(in)
-		if errors.Is(err, io.EOF) {
-			if n != 0 {
-				return fmt.Errorf("corrupted file")
-			}
+	offset := int64(0)
+	for {
+		var record entry
+		n, err := record.DecodeFromReader(in)
+		if errors.Is(err, io.EOF) && n == 0 {
 			break
 		}
-		db.index[record.key] = db.outOffset
-		db.outOffset += int64(n)
+		if err != nil {
+			return fmt.Errorf("decode error at offset %d: %w", offset, err)
+		}
+
+		db.index[record.key] = offset
+		offset += int64(n)
 	}
-	return err
+	db.outOffset = offset
+	return nil
 }
 
 func (db *Db) writeLoop() {
