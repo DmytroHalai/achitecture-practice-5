@@ -11,8 +11,7 @@ import (
 )
 
 const (
-	outFileName      = "current-data"
-	MAX_SEGMENT_SIZE = 1 << 10
+	outFileName = "current-data"
 )
 
 var ErrNotFound = fmt.Errorf("record does not exist")
