@@ -6,14 +6,14 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"        
+	"path/filepath"
+	"sync"
 )
 
 const (
 	outFileName      = "current-data"
-	MAX_SEGMENT_SIZE = 1 << 10 
+	MAX_SEGMENT_SIZE = 1 << 10
 )
-
 
 var ErrNotFound = fmt.Errorf("record does not exist")
 
@@ -22,8 +22,13 @@ type hashIndex map[string]int64
 type Db struct {
 	out       *os.File
 	outOffset int64
-	filename string
-	index hashIndex
+	filename  string
+	index     hashIndex
+
+	mu       sync.Mutex
+	writeCh  chan entry
+	wg       sync.WaitGroup
+	stopOnce sync.Once
 }
 
 type Entry struct {
@@ -32,48 +37,48 @@ type Entry struct {
 }
 
 func (db *Db) ReadAll() ([]Entry, error) {
-    file, err := os.Open(db.filename)
-    if err != nil {
-        return nil, err
-    }
-    defer file.Close()
+	file, err := os.Open(db.filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
 
-    var entries []Entry
-    reader := bufio.NewReader(file)
-    for {
-        var record entry
-        n, err := record.DecodeFromReader(reader)
-        if err != nil {
-            if errors.Is(err, io.EOF) && n == 0 {
-                break
-            }
-            return nil, fmt.Errorf("помилка при декодуванні запису: %w", err)
-        }
-        entries = append(entries, Entry{Key: record.key, Value: record.value})
-    }
-    return entries, nil
+	var entries []Entry
+	reader := bufio.NewReader(file)
+	for {
+		var record entry
+		n, err := record.DecodeFromReader(reader)
+		if err != nil {
+			if errors.Is(err, io.EOF) && n == 0 {
+				break
+			}
+			return nil, fmt.Errorf("помилка при декодуванні запису: %w", err)
+		}
+		entries = append(entries, Entry{Key: record.key, Value: record.value})
+	}
+	return entries, nil
 }
 
 func Open(dir string) (*Db, error) {
-    if err := os.MkdirAll(dir, 0755); err != nil {
-        return nil, fmt.Errorf("не вдалося створити каталог %s: %w", dir, err)
-    }
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, fmt.Errorf("не вдалося створити каталог %s: %w", dir, err)
+	}
 
-    outputPath := filepath.Join(dir, outFileName)
-    f, err := os.OpenFile(outputPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
-    if err != nil {
-        return nil, err
-    }
-    db := &Db{
-        out:       f,
-        filename:  outputPath,
-        index:     make(hashIndex),
-    }
-    err = db.recover()
-    if err != nil && err != io.EOF {
-        return nil, err
-    }
-    return db, nil
+	outputPath := filepath.Join(dir, outFileName)
+	f, err := os.OpenFile(outputPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
+	if err != nil {
+		return nil, err
+	}
+	db := &Db{
+		out:      f,
+		filename: outputPath,
+		index:    make(hashIndex),
+	}
+	err = db.recover()
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+	return db, nil
 }
 
 func (db *Db) recover() error {
