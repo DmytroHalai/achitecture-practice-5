@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-const testMaxSegmentSize = 1 << 10
+const testMaxSegmentSize = 100
 
 func TestSegmentsCreation(t *testing.T) {
 	dir := "testdata"
@@ -95,32 +95,32 @@ func TestMergeSegments(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-    dir := t.TempDir()
+	dir := t.TempDir()
 
-    ds, err := NewSegmentedDatastore(dir, testMaxSegmentSize)
-    if err != nil {
-        t.Fatalf("failed to create datastore: %v", err)
-    }
-    defer ds.Close()
+	ds, err := NewSegmentedDatastore(dir, testMaxSegmentSize)
+	if err != nil {
+		t.Fatalf("failed to create datastore: %v", err)
+	}
+	defer ds.Close()
 
-    key := "key"
-    value := "value"
+	key := "key"
+	value := "value"
 
-    if err := ds.Put(key, value); err != nil {
-        t.Fatalf("failed to write value: %v", err)
-    }
+	if err := ds.Put(key, value); err != nil {
+		t.Fatalf("failed to write value: %v", err)
+	}
 
-    if err := ds.Delete(key); err != nil {
-        t.Fatalf("failed to delete key: %v", err)
-    }
+	if err := ds.Delete(key); err != nil {
+		t.Fatalf("failed to delete key: %v", err)
+	}
 
-    _, err = ds.Get(key)
-    if err == nil {
-        t.Fatalf("expected error, but key still exists")
-    }
+	_, err = ds.Get(key)
+	if err == nil {
+		t.Fatalf("expected error, but key still exists")
+	}
 
-    expectedErr := "key not found: key"
-    if err.Error() != expectedErr {
-        t.Fatalf("expected error '%s', received: '%v'", expectedErr, err)
-    }
+	expectedErr := "key not found: key"
+	if err.Error() != expectedErr {
+		t.Fatalf("expected error '%s', received: '%v'", expectedErr, err)
+	}
 }
