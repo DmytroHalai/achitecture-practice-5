@@ -1,7 +1,7 @@
 package datastore
 
 import (
-	"errors" 
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -84,15 +84,13 @@ func (ds *SegmentedDatastore) Merge() error {
         if err != nil {
             return fmt.Errorf("не вдалося прочитати сегмент %s: %w", segment.filename, err)
         }
-        fmt.Printf("Сегмент %s: прочитано %d записів\n", segment.filename, len(entries))
         for _, e := range entries {
-            latest[e.Key] = e.Value
-            fmt.Printf("Зчитано ключ: %s, значення: %s\n", e.Key, e.Value)
+            if e.Value == "" {
+                delete(latest, e.Key)
+            } else {
+                latest[e.Key] = e.Value
+            }
         }
-    }
-
-    if len(latest) == 0 {
-        fmt.Println("Попередження: latest порожній, немає даних для злиття")
     }
 
     tmpSegmentName := fmt.Sprintf("tmp-segment-%d.tmp", len(ds.segments))
@@ -108,7 +106,6 @@ func (ds *SegmentedDatastore) Merge() error {
     }
 
     for key, value := range latest {
-        fmt.Printf("Записуємо в tmpDb ключ: %s, значення: %s\n", key, value)
         if err := tmpDb.Put(key, value); err != nil {
             tmpDb.Close()
             os.RemoveAll(tmpPath)
@@ -133,7 +130,7 @@ func (ds *SegmentedDatastore) Merge() error {
     }
 
     newDb, err := Open(finalPath)
-    if err != nil {
+	if err != nil {
         return err
     }
 
@@ -146,7 +143,6 @@ func (ds *SegmentedDatastore) Merge() error {
 
     return saveManifest(ds.dir, manifest)
 }
-
 
 
 func (ds *SegmentedDatastore) Put(key, value string) error {
@@ -202,4 +198,16 @@ func (ds *SegmentedDatastore) Close() error {
 		}
 	}
 	return nil
+}
+
+func (ds *SegmentedDatastore) Delete(key string) error {
+    activeSegment := ds.segments[len(ds.segments)-1]
+
+    if err := activeSegment.Put(key, ""); err != nil {
+        return fmt.Errorf("failed to write delete token for key %s: %w", key, err)
+    }
+
+    delete(activeSegment.index, key)	
+
+    return nil
 }
