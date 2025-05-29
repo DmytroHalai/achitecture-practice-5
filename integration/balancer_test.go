@@ -24,7 +24,8 @@ func TestBalancer_DistributesRequests(t *testing.T) {
     serverHits := make(map[string]int)
 
     for i := 0; i < requests; i++ {
-        url := fmt.Sprintf("%s/api/v1/some-data?key=%s", baseAddress, teamKey)
+        // Добавляем уникальный параметр, чтобы балансировщик распределял запросы
+        url := fmt.Sprintf("%s/api/v1/some-data?key=%s&req=%d", baseAddress, teamKey, i)
         resp, err := client.Get(url)
         if err != nil {
             t.Fatalf("request %d failed: %v", i, err)
