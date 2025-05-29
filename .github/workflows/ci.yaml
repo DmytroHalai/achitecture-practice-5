@@ -24,7 +24,8 @@ jobs:
 
       - name: Build and Test with Docker Compose
         run: |
-          docker-compose -f docker-compose.test.yaml up --build --abort-on-container-exit --exit-code-from test
+          INTEGRATION_TEST=1 docker-compose -f docker-compose.test.yaml up --build --abort-on-container-exit --exit-code-from test
+      
 
       - name: Shutdown Docker Compose
         run: docker-compose -f docker-compose.test.yaml down
