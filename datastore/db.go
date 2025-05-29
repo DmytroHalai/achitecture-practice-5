@@ -53,8 +53,8 @@ func (db *Db) ReadAll() ([]Entry, error) {
 			return nil, fmt.Errorf("помилка при декодуванні запису: %w", err)
 		}
 		if record.value == "" {
-            continue
-        }
+			continue
+		}
 		entries = append(entries, Entry{Key: record.key, Value: record.value})
 	}
 	return entries, nil
@@ -159,10 +159,10 @@ func (db *Db) Get(key string) (string, error) {
 
 func (db *Db) Put(key, value string) error {
 	entry := entry{key: key, value: value}
-    db.writeCh <- entry
-    if value == "" {
-        delete(db.index, key)
-    }
+	db.writeCh <- entry
+	if value == "" {
+		delete(db.index, key)
+	}
 	return nil
 }
 

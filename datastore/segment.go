@@ -25,15 +25,14 @@ func NewSegmentedDatastore(dir string, maxSegmentSize int64) (*SegmentedDatastor
 	}
 
 	for _, segFile := range manifest.Segments {
-    	path := filepath.Join(dir, segFile)
-    	fmt.Printf("Відкриваємо сегмент: %q\n", path)  
-    	db, err := Open(path)
-    	if err != nil {
-        	return nil, fmt.Errorf("не вдалося відкрити сегмент %q: %w", path, err)
-    	}
-    	ds.segments = append(ds.segments, db)
-}
-
+		path := filepath.Join(dir, segFile)
+		fmt.Printf("Відкриваємо сегмент: %q\n", path)
+		db, err := Open(path)
+		if err != nil {
+			return nil, fmt.Errorf("не вдалося відкрити сегмент %q: %w", path, err)
+		}
+		ds.segments = append(ds.segments, db)
+	}
 
 	if len(ds.segments) == 0 {
 		if err := ds.createNewSegment(); err != nil {
@@ -50,100 +49,98 @@ func NewSegmentedDatastore(dir string, maxSegmentSize int64) (*SegmentedDatastor
 }
 
 func (ds *SegmentedDatastore) createNewSegment() error {
-    segmentName := fmt.Sprintf("segment-%d.db", len(ds.segments))
-    path := filepath.Join(ds.dir, segmentName)
+	segmentName := fmt.Sprintf("segment-%d.db", len(ds.segments))
+	path := filepath.Join(ds.dir, segmentName)
 
-    if err := os.MkdirAll(ds.dir, 0755); err != nil {
-        return fmt.Errorf("не вдалося створити каталог %s: %w", ds.dir, err)
-    }
+	if err := os.MkdirAll(ds.dir, 0755); err != nil {
+		return fmt.Errorf("не вдалося створити каталог %s: %w", ds.dir, err)
+	}
 
-    db, err := Open(path)
-    if err != nil {
-        return fmt.Errorf("не вдалося відкрити сегмент %s: %w", path, err)
-    }
-    ds.segments = append(ds.segments, db)
+	db, err := Open(path)
+	if err != nil {
+		return fmt.Errorf("не вдалося відкрити сегмент %s: %w", path, err)
+	}
+	ds.segments = append(ds.segments, db)
 
-    manifest, err := loadManifest(ds.dir)
-    if err != nil {
-        db.Close()
-        return err
-    }
+	manifest, err := loadManifest(ds.dir)
+	if err != nil {
+		db.Close()
+		return err
+	}
 
-    manifest.Segments = append(manifest.Segments, segmentName)
-    manifest.ActiveIndex = len(manifest.Segments) - 1
+	manifest.Segments = append(manifest.Segments, segmentName)
+	manifest.ActiveIndex = len(manifest.Segments) - 1
 
-    return saveManifest(ds.dir, manifest)
+	return saveManifest(ds.dir, manifest)
 }
-
 
 func (ds *SegmentedDatastore) Merge() error {
-    latest := make(map[string]string)
+	latest := make(map[string]string)
 
-    for _, segment := range ds.segments {
-        entries, err := segment.ReadAll()
-        if err != nil {
-            return fmt.Errorf("не вдалося прочитати сегмент %s: %w", segment.filename, err)
-        }
-        for _, e := range entries {
-            if e.Value == "" {
-                delete(latest, e.Key)
-            } else {
-                latest[e.Key] = e.Value
-            }
-        }
-    }
+	for _, segment := range ds.segments {
+		entries, err := segment.ReadAll()
+		if err != nil {
+			return fmt.Errorf("не вдалося прочитати сегмент %s: %w", segment.filename, err)
+		}
+		for _, e := range entries {
+			if e.Value == "" {
+				delete(latest, e.Key)
+			} else {
+				latest[e.Key] = e.Value
+			}
+		}
+	}
 
-    tmpSegmentName := fmt.Sprintf("tmp-segment-%d.tmp", len(ds.segments))
-    tmpPath := filepath.Join(ds.dir, tmpSegmentName)
+	tmpSegmentName := fmt.Sprintf("tmp-segment-%d.tmp", len(ds.segments))
+	tmpPath := filepath.Join(ds.dir, tmpSegmentName)
 
-    if err := os.MkdirAll(ds.dir, 0755); err != nil {
-        return fmt.Errorf("не вдалося створити каталог %s: %w", ds.dir, err)
-    }
+	if err := os.MkdirAll(ds.dir, 0755); err != nil {
+		return fmt.Errorf("не вдалося створити каталог %s: %w", ds.dir, err)
+	}
 
-    tmpDb, err := Open(tmpPath)
-    if err != nil {
-        return fmt.Errorf("не вдалося відкрити тимчасовий сегмент %s: %w", tmpPath, err)
-    }
-
-    for key, value := range latest {
-        if err := tmpDb.Put(key, value); err != nil {
-            tmpDb.Close()
-            os.RemoveAll(tmpPath)
-            return err
-        }
-    }
-
-    if err := tmpDb.Close(); err != nil {
-        return fmt.Errorf("не вдалося закрити tmpDb перед перейменуванням: %w", err)
-    }
-
-    for _, seg := range ds.segments {
-        seg.Close()
-        os.Remove(seg.filename)
-    }
-
-    finalSegmentName := fmt.Sprintf("segment-%d.db", len(ds.segments))
-    finalPath := filepath.Join(ds.dir, finalSegmentName)
-
-    if err := os.Rename(tmpPath, finalPath); err != nil {
-        return fmt.Errorf("не вдалося перейменувати %s у %s: %w", tmpPath, finalPath, err)
-    }
-
-    newDb, err := Open(finalPath)
+	tmpDb, err := Open(tmpPath)
 	if err != nil {
-        return err
-    }
+		return fmt.Errorf("не вдалося відкрити тимчасовий сегмент %s: %w", tmpPath, err)
+	}
 
-    ds.segments = []*Db{newDb}
+	for key, value := range latest {
+		if err := tmpDb.Put(key, value); err != nil {
+			tmpDb.Close()
+			os.RemoveAll(tmpPath)
+			return err
+		}
+	}
 
-    manifest := &Manifest{
-        Segments:    []string{finalSegmentName},
-        ActiveIndex: 0,
-    }
+	if err := tmpDb.Close(); err != nil {
+		return fmt.Errorf("не вдалося закрити tmpDb перед перейменуванням: %w", err)
+	}
 
-    return saveManifest(ds.dir, manifest)
+	for _, seg := range ds.segments {
+		seg.Close()
+		os.Remove(seg.filename)
+	}
+
+	finalSegmentName := fmt.Sprintf("segment-%d.db", len(ds.segments))
+	finalPath := filepath.Join(ds.dir, finalSegmentName)
+
+	if err := os.Rename(tmpPath, finalPath); err != nil {
+		return fmt.Errorf("не вдалося перейменувати %s у %s: %w", tmpPath, finalPath, err)
+	}
+
+	newDb, err := Open(finalPath)
+	if err != nil {
+		return err
+	}
+
+	ds.segments = []*Db{newDb}
+
+	manifest := &Manifest{
+		Segments:    []string{finalSegmentName},
+		ActiveIndex: 0,
+	}
+
+	return saveManifest(ds.dir, manifest)
 }
-
 
 func (ds *SegmentedDatastore) Put(key, value string) error {
 	if len(ds.segments) == 0 {
@@ -201,13 +198,13 @@ func (ds *SegmentedDatastore) Close() error {
 }
 
 func (ds *SegmentedDatastore) Delete(key string) error {
-    activeSegment := ds.segments[len(ds.segments)-1]
+	activeSegment := ds.segments[len(ds.segments)-1]
 
-    if err := activeSegment.Put(key, ""); err != nil {
-        return fmt.Errorf("failed to write delete token for key %s: %w", key, err)
-    }
+	if err := activeSegment.Put(key, ""); err != nil {
+		return fmt.Errorf("failed to write delete token for key %s: %w", key, err)
+	}
 
-    delete(activeSegment.index, key)	
+	delete(activeSegment.index, key)
 
-    return nil
+	return nil
 }

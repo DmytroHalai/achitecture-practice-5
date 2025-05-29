@@ -2,8 +2,8 @@ package datastore
 
 import (
 	"encoding/json"
-	"os"
 	"fmt"
+	"os"
 	"path/filepath"
 )
 
@@ -13,21 +13,21 @@ type Manifest struct {
 }
 
 func loadManifest(dir string) (*Manifest, error) {
-    path := filepath.Join(dir, "manifest.json")
-    f, err := os.Open(path)
-    if err != nil {
-        if os.IsNotExist(err) {
-            return &Manifest{Segments: []string{}, ActiveIndex: -1}, nil
-        }
-        return nil, fmt.Errorf("не вдалося відкрити маніфест: %w", err)
-    }
-    defer f.Close()
+	path := filepath.Join(dir, "manifest.json")
+	f, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return &Manifest{Segments: []string{}, ActiveIndex: -1}, nil
+		}
+		return nil, fmt.Errorf("не вдалося відкрити маніфест: %w", err)
+	}
+	defer f.Close()
 
-    var manifest Manifest
-    if err := json.NewDecoder(f).Decode(&manifest); err != nil {
-        return nil, fmt.Errorf("не вдалося декодувати маніфест: %w", err)
-    }
-    return &manifest, nil
+	var manifest Manifest
+	if err := json.NewDecoder(f).Decode(&manifest); err != nil {
+		return nil, fmt.Errorf("не вдалося декодувати маніфест: %w", err)
+	}
+	return &manifest, nil
 }
 
 func saveManifest(dir string, manifest *Manifest) error {

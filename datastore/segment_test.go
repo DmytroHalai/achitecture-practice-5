@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-const testMaxSegmentSize = 50
+const testMaxSegmentSize = 100
 
 func TestSegmentsCreation(t *testing.T) {
 	dir := "testdata"
